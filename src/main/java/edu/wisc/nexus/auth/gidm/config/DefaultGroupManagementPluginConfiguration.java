@@ -47,6 +47,11 @@ public class DefaultGroupManagementPluginConfiguration extends AbstractRefreshin
     public DefaultGroupManagementPluginConfiguration() {
         super("RUTAuthPluginConfiguration");
     }
+    
+    @Override
+    protected Configuration createConfiguration() {
+        return new Configuration();
+    }
 
     @Override
     protected File getConfigurationFile() {

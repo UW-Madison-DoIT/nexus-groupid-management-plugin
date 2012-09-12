@@ -67,6 +67,11 @@ public abstract class AbstractRefreshingFileLoader<C> extends AbstractLogEnabled
         final String timerFullName = timerName + ".RefreshTimer";
         this.configurationSaveTimer = new Timer(timerFullName, true);
     }
+    
+    /**
+     * @return Create a default configuration object
+     */
+    protected abstract C createConfiguration();
 
     /**
      * @return The configuration file to read from
@@ -180,7 +185,10 @@ public abstract class AbstractRefreshingFileLoader<C> extends AbstractLogEnabled
     private void refreshConfiguration(boolean doLoad) {
         this.configReadWriteLock.writeLock().lock();
         try {
-            final C configuration = getConfiguration();
+            C configuration = getConfiguration();
+            if (configuration == null) {
+                configuration = this.createConfiguration();
+            }
 
             final boolean save = this.preSave(configuration);
             if (save) {

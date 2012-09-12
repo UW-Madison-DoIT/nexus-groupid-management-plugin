@@ -168,8 +168,8 @@
                             <goal>aggregate</goal>
                         </goals>
                         <configuration>
-                            <sourceDirectory>${basedir}/src/main/resources/static/js</sourceDirectory>
-                            <output>${project.build.directory}/classes/static/js/${minifiedJsName}</output>
+                            <sourceDirectory>${basedir}/src/main/resources/static/gidm/js</sourceDirectory>
+                            <output>${project.build.directory}/classes/static/gidm/js/${minifiedJsName}</output>
                             <nosuffix>true</nosuffix>
                             <nomunge>true</nomunge>
                             <jswarn>false</jswarn>

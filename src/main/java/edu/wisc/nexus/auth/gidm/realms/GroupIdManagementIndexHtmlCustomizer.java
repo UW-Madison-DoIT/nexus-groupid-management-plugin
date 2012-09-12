@@ -58,7 +58,7 @@ public class GroupIdManagementIndexHtmlCustomizer extends AbstractNexusIndexHtml
             
             //Search the classpath for scripts
             final ClassSpace classSpace = new URLClassSpace(this.getClass().getClassLoader());
-            for (final Enumeration<URL> entries = classSpace.findEntries("/static/js/", artifactId + "-*.js", true);
+            for (final Enumeration<URL> entries = classSpace.findEntries("/static/gidm/js/", artifactId + "-*.js", true);
                     entries.hasMoreElements();) {
                 
                 final URL script = entries.nextElement();
@@ -97,7 +97,7 @@ public class GroupIdManagementIndexHtmlCustomizer extends AbstractNexusIndexHtml
     }
 
     protected void addScript(final StringBuilder scriptTags, String version, final String file) {
-        scriptTags.append("<script src=\"static/js/").append(file).append("?").append(version)
+        scriptTags.append("<script src=\"static/gidm/js/").append(file).append("?").append(version)
                 .append("\" type=\"text/javascript\" charset=\"utf-8\"></script>\n");
     }
 
