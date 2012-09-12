@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<security>
+    <version>2.0.1</version>
+    <roles>
+        <role>
+            <id>ui-gidm-admin</id>
+            <name>UI: GroupID Administrator</name>
+            <description>Gives access to GroupID Management.</description>
+            <sessionTimeout>60</sessionTimeout>
+            <privileges>
+                <privilege>gidm-conf-update</privilege>
+                <privilege>gidm-conf-read</privilege>
+            </privileges>
+            <roles>
+            	<role>ui-server-admin</role>
+            </roles>	
+        </role>
+    </roles>
+   
+    <privileges>
+
+    	<privilege>
+            <id>gidm-conf-update</id>
+            <type>method</type>
+            <name>GroupID Management Configuration Mapping. (update,read)</name>
+            <description>Give permission to update GroupID Management Configuration Mapping.</description>
+            <properties>
+                <property>
+                    <key>method</key>
+                    <value>update</value>
+                </property>
+                <property>
+                    <key>permission</key>
+                    <value>nexus:gidmconf</value>
+                </property>
+            </properties>
+        </privilege>
+        
+        <privilege>
+            <id>gidm-conf-read</id>
+            <type>method</type>
+            <name>GroupID Management Configuration Mapping. (read)</name>
+            <description>Give permission to read GroupID Management Configuration Mapping.</description>
+            <properties>
+                <property>
+                    <key>method</key>
+                    <value>read</value>
+                </property>
+                <property>
+                    <key>permission</key>
+                    <value>nexus:gidmconf</value>
+                </property>
+            </properties>
+        </privilege>
+        
+    </privileges>
+</security>
