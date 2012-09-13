@@ -3,74 +3,87 @@
         <title>Configure Managed Repositories</title>
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js"></script>
         <script type="text/javascript">
-        
-var sortOptions = function(selectBox) {
-	var options = selectBox.find("option");
-
-	options.sort(function(a,b) {
-	    if (a.text > b.text) return 1;
-	    else if (a.text < b.text) return -1;
-	    else return 0
-	})
-
-	selectBox.empty().append( options );
-};
-
-var moveOptions = function(from, to, moveCallback) {
-	from.find("option:selected").each(function() {
-		var option = $(this);
-		moveCallback(option.val(), function() {
-			option.remove();
-	        to.append(option);
-	        sortOptions(to);
-	        to.find("option:selected").removeAttr("selected");
-		});
-    });
-};
-
-$.getJSON('/nexus/service/local/repositories', function(data) {
+$(function() {
+	var nexusConfig = {};
+	
 	var unmanagedRepos = $('#unmanagedRepos');
     var managedRepos = $('#managedRepos');
-    
-    $.each(data.data, function() {
-        unmanagedRepos.append($("<option />").val(this.id).text(this.name));
-    });
-    sortOptions(unmanagedRepos);
-
-    $.getJSON('/nexus/service/local/gidm/managed_repositories', function(data) {
-        $.each(data.data, function() {
-        	unmanagedRepos.find("option[value='" + this.id + "']").remove();
-        	managedRepos.append($("<option />").val(this.id).text(this.name));
-        });
-        sortOptions(managedRepos);
-    });
-    
-    $("#moveLeft").click(function() {
-    	moveOptions(managedRepos, unmanagedRepos, function(id, successCallback) {
-            $.ajax({
-            	url:'/nexus/service/local/gidm/managed_repositories/' + id,
-                type:'DELETE',
-                success:successCallback
-            });
-        });
-    });
-    
-    $("#moveRight").click(function() {
-    	moveOptions(unmanagedRepos, managedRepos, function(id, successCallback) {
-    		$.ajax({
-                url:'/nexus/service/local/gidm/managed_repositories/' + id,
-                type:'PUT',
-                contentType:'application/json; charset=utf-8',
-                dataType:'json',
-                success:successCallback,
-                data:{
-                    data:{
-                        id:id
-                    }
-                }
-            });
-   	    });
-   	});
+	
+	var sortOptions = function(selectBox) {
+		var options = selectBox.find("option");
+	
+		options.sort(function(a,b) {
+		    if (a.text > b.text) return 1;
+		    else if (a.text < b.text) return -1;
+		    else return 0
+		})
+	
+		selectBox.empty().append( options );
+	};
+	
+	var moveOptions = function(from, to, moveCallback) {
+		from.find("option:selected").each(function() {
+			var option = $(this);
+			moveCallback(option.val(), function() {
+				option.remove();
+		        to.append(option);
+		        sortOptions(to);
+		        to.find("option:selected").removeAttr("selected");
+			});
+	    });
+	};
+	
+	var loadManagedRepos = function() {
+		$.getJSON(nexusConfig.baseUrl + '/service/local/repositories', function(data) {
+		    $.each(data.data, function() {
+		        unmanagedRepos.append($("<option />").val(this.id).text(this.name));
+		    });
+		    sortOptions(unmanagedRepos);
+		
+		    $.getJSON(nexusConfig.baseUrl + '/service/local/gidm/managed_repositories', function(data) {
+		        $.each(data.data, function() {
+		        	unmanagedRepos.find("option[value='" + this.id + "']").remove();
+		        	managedRepos.append($("<option />").val(this.id).text(this.name));
+		        });
+		        sortOptions(managedRepos);
+		    });
+		});
+	};
+	
+	//Bind delete handler 
+	$("#moveLeft").click(function() {
+		moveOptions(managedRepos, unmanagedRepos, function(id, successCallback) {
+	        $.ajax({
+	        	url:nexusConfig.baseUrl + '/service/local/gidm/managed_repositories/' + id,
+	            type:'DELETE',
+	            success:successCallback
+	        });
+	    });
+	});
+	
+	//Bind add handler 
+	$("#moveRight").click(function() {
+		moveOptions(unmanagedRepos, managedRepos, function(id, successCallback) {
+			$.ajax({
+	            url:nexusConfig.baseUrl + '/service/local/gidm/managed_repositories/' + id,
+	            type:'PUT',
+	            contentType:'application/json; charset=utf-8',
+	            dataType:'json',
+	            success:successCallback,
+	            data:{
+	                data:{
+	                    id:id
+	                }
+	            }
+	        });
+	    });
+	});
+	
+	//Load nexus config and trigger managed repos loading 
+	$.getJSON('../../../service/local/status', function(data) {
+		nexusConfig = data.data;
+		loadManagedRepos();
+	});
 });
         </script>
     </head>
