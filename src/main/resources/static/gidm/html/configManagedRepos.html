@@ -1,23 +1,93 @@
 <html>
     <head>
         <title>Configure Managed Repositories</title>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js"></script>
+        <script type="text/javascript">
+        
+var sortOptions = function(selectBox) {
+	var options = selectBox.find("option");
+
+	options.sort(function(a,b) {
+	    if (a.text > b.text) return 1;
+	    else if (a.text < b.text) return -1;
+	    else return 0
+	})
+
+	selectBox.empty().append( options );
+};
+
+var moveOptions = function(from, to, moveCallback) {
+	from.find("option:selected").each(function() {
+		var option = $(this);
+		moveCallback(option.val(), function() {
+			option.remove();
+	        to.append(option);
+	        sortOptions(to);
+	        to.find("option:selected").removeAttr("selected");
+		});
+    });
+};
+
+$.getJSON('/nexus/service/local/repositories', function(data) {
+	var unmanagedRepos = $('#unmanagedRepos');
+    var managedRepos = $('#managedRepos');
+    
+    $.each(data.data, function() {
+        unmanagedRepos.append($("<option />").val(this.id).text(this.name));
+    });
+    sortOptions(unmanagedRepos);
+
+    $.getJSON('/nexus/service/local/gidm/managed_repositories', function(data) {
+        $.each(data.data, function() {
+        	unmanagedRepos.find("option[value='" + this.id + "']").remove();
+        	managedRepos.append($("<option />").val(this.id).text(this.name));
+        });
+        sortOptions(managedRepos);
+    });
+    
+    $("#moveLeft").click(function() {
+    	moveOptions(managedRepos, unmanagedRepos, function(id, successCallback) {
+            $.ajax({
+            	url:'/nexus/service/local/gidm/managed_repositories/' + id,
+                type:'DELETE',
+                success:successCallback
+            });
+        });
+    });
+    
+    $("#moveRight").click(function() {
+    	moveOptions(unmanagedRepos, managedRepos, function(id, successCallback) {
+    		$.ajax({
+                url:'/nexus/service/local/gidm/managed_repositories/' + id,
+                type:'PUT',
+                contentType:'application/json; charset=utf-8',
+                dataType:'json',
+                success:successCallback,
+                data:{
+                    data:{
+                        id:id
+                    }
+                }
+            });
+   	    });
+   	});
+});
+        </script>
     </head>
     <body>
         <form id="mangedReposForm">
             <table>
                 <tr>
                     <td>
-                        <select id="unmanagedRepos" multiple="multiple">
+                        <select id="unmanagedRepos" multiple="multiple" size="15">    
 						</select>
                     </td>
                     <td>
                         <input id="moveLeft" value="< " type="button" /><br/>
-                        <input id="moveAllLeft" value="<|" type="button" /><br/>
-                        <input id="moveAllRight" value="|>" type="button" /><br/>
                         <input id="moveRight" value=" >" type="button" />
                     </td>
                     <td>
-                        <select id="managedRepos" multiple="multiple">
+                        <select id="managedRepos" multiple="multiple" size="15">
                         </select>
                     </td>
                 </tr>
