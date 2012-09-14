@@ -34,24 +34,20 @@ $(function() {
 	};
 	
 	var loadManagedRepos = function() {
-	    //Get the managed repositories 
-	    $.getJSON(nexusConfig.baseUrl + '/service/local/gidm/managed_repositories', function(data) {
-	    	//Remove any existing data
-            unmanagedRepos.find("option").remove();
-            managedRepos.find("option").remove();
-            
-            //Add the list of all repositories to the unmanaged side and sort the options 
-            $.each(data.unmanagedRepositories, function() {
-                unmanagedRepos.append($("<option />").val(this.id).text(this.name));
-            });
-            sortOptions(unmanagedRepos);
-	    	
-	    	//Add the list of managed repositories and remove the managed repos from the unmanaged list 
-	        $.each(data.managedRepositories, function() {
-	        	managedRepos.append($("<option />").val(this.id).text(this.name));
-	        });
-	        sortOptions(managedRepos);
-	    });
+		$.getJSON(nexusConfig.baseUrl + '/service/local/repositories', function(data) {
+		    $.each(data.data, function() {
+		        unmanagedRepos.append($("<option />").val(this.id).text(this.name));
+		    });
+		    sortOptions(unmanagedRepos);
+		
+		    $.getJSON(nexusConfig.baseUrl + '/service/local/gidm/managed_repositories', function(data) {
+		        $.each(data.data, function() {
+		        	unmanagedRepos.find("option[value='" + this.id + "']").remove();
+		        	managedRepos.append($("<option />").val(this.id).text(this.name));
+		        });
+		        sortOptions(managedRepos);
+		    });
+		});
 	};
 	
 	//Bind delete handler 
@@ -83,8 +79,6 @@ $(function() {
 	    });
 	});
 	
-	$("#refresh").click(loadManagedRepos);
-	
 	//Load nexus config and trigger managed repos loading 
 	$.getJSON('../../../service/local/status', function(data) {
 		nexusConfig = data.data;
@@ -96,20 +90,6 @@ $(function() {
     <body>
         <form id="mangedReposForm">
             <table>
-                <tr>
-                    <td colspan="3">
-                        <input id="refresh" value="Refresh" type="button" />
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <label for="unmanagedRepos">Unmanaged Repositories</label>
-                    </td>
-                    <td />
-                    <td>
-                        <label for="managedRepos">Managed Repositories</label>
-                    </td>
-                </tr>
                 <tr>
                     <td>
                         <select id="unmanagedRepos" multiple="multiple" size="15">    

@@ -18,7 +18,7 @@
     </prerequisites>
     
     <properties>
-        <nexus.version>2.1.2</nexus.version>
+        <nexus.version>2.0.6</nexus.version>
         <minifiedJsName>${project.artifactId}-all.min.js</minifiedJsName>
     </properties>
 
@@ -138,7 +138,7 @@
                 <version>1.5</version>
                 <executions>
                     <execution>
-                        <id>rut-auth-config.xml</id>
+                        <id>gidm-config.xml</id>
                         <goals>
                             <goal>java</goal>
                             <goal>stax-reader</goal>
@@ -149,6 +149,18 @@
                             <version>1.0.0</version>
                             <models>
                                 <model>src/main/mdo/gidm-config.xml</model>
+                            </models>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>gidm-om.xml</id>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <version>1.0.0</version>
+                            <models>
+                                <model>src/main/mdo/gidm-om.xml</model>
                             </models>
                         </configuration>
                     </execution>

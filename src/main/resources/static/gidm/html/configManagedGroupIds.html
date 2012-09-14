@@ -1,0 +1,154 @@
+<html>
+    <head>
+        <title>Configure Managed Repositories</title>
+        <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/themes/base/jquery.ui.all.css">
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js"></script>
+        <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js"></script>
+        <script type="text/javascript">
+$(function() {
+	var nexusConfig = {};
+	
+	var managedGroupIds = $('#managedGroupIds');
+	
+	var sortOptions = function(selectBox) {
+		var options = selectBox.find("option");
+	
+		options.sort(function(a,b) {
+		    if (a.text > b.text) return 1;
+		    else if (a.text < b.text) return -1;
+		    else return 0
+		})
+	
+		selectBox.empty().append( options );
+	};
+	
+	var loadManagedGroupIds = function() {
+        //Get the unmanaged repositories 
+        $.getJSON(nexusConfig.baseUrl + '/service/local/gidm/managed_groupids', function(data) {
+            //Remove any existing data
+            managedGroupIds.find("option").remove();
+            
+            //Add the list of all repositories to the unmanaged side and sort the options
+            if (data.data != undefined) {
+	            $.each(data.data, function() {
+	                unmanagedRepos.append($("<option />").val(this.id).text(this.name));
+	            });
+            }
+            sortOptions(managedGroupIds);
+        });
+	};
+    
+    $("#refresh").click(loadManagedGroupIds);
+    
+    var groupId = $( "#newGroupIdForm #groupId" );
+    var allFields = $( [] ).add( groupId );
+    $("#newGroupIdForm").dialog({
+        autoOpen: false,
+        height: 300,
+        width: 350,
+        modal: true,
+        buttons: {
+            "Create GroupId": function() {
+            	var id = groupId.val();
+            	$.ajax({
+            		url:nexusConfig.baseUrl + '/service/local/gidm/managed_groupids/' + id,
+                    type:'PUT',
+                    contentType:'application/json; charset=utf-8',
+                    dataType:'json',
+                    success:loadManagedGroupIds,
+                    data:{
+                        data:{
+                            id:id
+                        }
+                    }
+                });
+            	$(this).dialog( "close" );
+            },
+            "Cancel": function() {
+                $(this).dialog( "close" );
+            }
+        },
+        close: function() {
+            allFields.val( "" ).removeClass( "ui-state-error" );
+        }
+    });
+    
+    $("#addGroupId").click(function() {
+    	$("#newGroupIdForm").dialog( "open" );
+    });
+    
+    $("#deleteGroupId").click(function() {
+    	managedGroupIds.find("option:selected").each(function() {
+            var option = $(this);
+            var id = option.val();
+            
+	    	$.ajax({
+	            url:nexusConfig.baseUrl + '/service/local/gidm/managed_groupids/' + id,
+	            type:'DELETE',
+	            success:function() {
+	            	option.remove();
+	            }
+	        });
+    	});
+    });
+	
+	//Load nexus config and trigger managed repos loading 
+	$.getJSON('../../../service/local/status', function(data) {
+		nexusConfig = data.data;
+		loadManagedGroupIds();
+	});
+});
+        </script>
+    </head>
+    <body>
+        <form id="managedGroupIdsForm">
+            <table>
+                <tr>
+                    <td>
+                        <input id="refresh" value="Refresh" type="button" />
+                        <input id="addGroupId" value="Add" type="button" />
+                        <input id="deleteGroupId" value="Delete" type="button" />
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <select id="managedGroupIds" size="15">    
+						</select>
+                    </td>
+                </tr>
+            </table>
+            <!-- TODO uncomment this later after basic groupId management is working
+            <hr/>
+            <table>
+                <tr>
+                    <td>
+                        <label for="usernames">Users</label>
+                    </td>
+                    <td>
+                        <label for="userPermissions">User Permissions</label>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <select id="usernames" size="15">    
+                        </select>
+                    </td>
+                    <td>
+                        <select id="userPermissions" size="15">    
+                        </select>
+                    </td>
+                </tr>
+            </table>
+             -->
+        </form>
+        
+        <div id="newGroupIdForm" title="New Managed GroupId" style="display: none;">
+		    <form>
+			    <fieldset>
+			        <label for="groupId">GroupId</label>
+			        <input type="text" name="groupId" id="groupId" class="text ui-widget-content ui-corner-all" />
+			    </fieldset>
+		    </form>
+		</div>
+    </body>
+</html>

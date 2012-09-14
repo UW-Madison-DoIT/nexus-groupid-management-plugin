@@ -10,29 +10,26 @@ import javax.ws.rs.Produces;
 
 import org.codehaus.enunciate.contract.jaxrs.ResourceMethodSignature;
 import org.codehaus.plexus.component.annotations.Component;
-import org.codehaus.plexus.component.annotations.Requirement;
 import org.restlet.Context;
 import org.restlet.data.Request;
 import org.restlet.data.Response;
 import org.restlet.resource.ResourceException;
 import org.restlet.resource.Variant;
-import org.sonatype.nexus.rest.model.RepositoryResourceResponse;
+import org.sonatype.nexus.proxy.NoSuchRepositoryException;
 import org.sonatype.nexus.rest.repositories.AbstractRepositoryPlexusResource;
 import org.sonatype.nexus.rest.repotargets.RepositoryTargetListPlexusResource;
 import org.sonatype.plexus.rest.resource.PathProtectionDescriptor;
 import org.sonatype.plexus.rest.resource.PlexusResource;
 
-import edu.wisc.nexus.auth.gidm.config.GroupManagementPluginConfiguration;
+import edu.wisc.nexus.auth.gidm.GroupIdManager;
+import edu.wisc.nexus.auth.gidm.om.v1_0_0.ManagedRepository;
 
 @Component(role = PlexusResource.class, hint = "ManagedRepositoryPlexusResource")
 @Path(RepositoryTargetListPlexusResource.RESOURCE_URI)
 @Produces({ "application/xml", "application/json" })
 @Consumes({ "application/xml", "application/json" })
-public class ManagedRepositoryPlexusResource extends AbstractRepositoryPlexusResource {
+public class ManagedRepositoryPlexusResource extends AbstractGroupdIdManagementPlexusResource {
     public static final String RESOURCE_URI = "/gidm/managed_repositories/{" + REPOSITORY_ID_KEY + "}";
-
-    @Requirement
-    private GroupManagementPluginConfiguration groupManagementPluginConfiguration;
 
     public ManagedRepositoryPlexusResource() {
         this.setModifiable(true);
@@ -40,7 +37,6 @@ public class ManagedRepositoryPlexusResource extends AbstractRepositoryPlexusRes
 
     @Override
     public Object getPayloadInstance() {
-        //TODO needed?
         return null;
     }
 
@@ -56,24 +52,33 @@ public class ManagedRepositoryPlexusResource extends AbstractRepositoryPlexusRes
 
     @Override
     @GET
-    @ResourceMethodSignature(pathParams = { @PathParam(AbstractRepositoryPlexusResource.REPOSITORY_ID_KEY) }, output = RepositoryResourceResponse.class)
+    @ResourceMethodSignature(pathParams = { @PathParam(AbstractRepositoryPlexusResource.REPOSITORY_ID_KEY) }, output = ManagedRepository.class)
     public Object get(Context context, Request request, Response response, Variant variant) throws ResourceException {
-        this.getLogger().info("get");
-        return this.getRepositoryResourceResponse(request, getRepositoryId(request));
+        final String repositoryId = getRepositoryId(request);
+        this.getLogger().info("get managed repository: " + repositoryId);
+        try {
+            return getGroupIdManager().getAsManagedRepository(repositoryId);
+        }
+        catch (NoSuchRepositoryException e) {
+            throw new ResourceException(503, e);
+        }
     }
 
     @Override
     @PUT
-    @ResourceMethodSignature(pathParams = { @PathParam(AbstractRepositoryPlexusResource.REPOSITORY_ID_KEY) }, input = RepositoryResourceResponse.class, output = RepositoryResourceResponse.class)
+    @ResourceMethodSignature(pathParams = { @PathParam(AbstractRepositoryPlexusResource.REPOSITORY_ID_KEY) }, input = ManagedRepository.class, output = ManagedRepository.class)
     public Object put(Context context, Request request, Response response, Object payload) throws ResourceException {
         final String repositoryId = getRepositoryId(request);
-        this.getLogger().info("put " + repositoryId);
-        this.getLogger().info("put " + context);
-        this.getLogger().info("put " + payload);
+        this.getLogger().info("add managed repository: " + repositoryId);
         
-        this.groupManagementPluginConfiguration.addManagedRepository(repositoryId);
-
-        return this.getRepositoryResourceResponse(request, repositoryId);
+        final GroupIdManager groupIdManager = this.getGroupIdManager();
+        try {
+            groupIdManager.addManagedRepository(repositoryId);
+            return groupIdManager.getAsManagedRepository(repositoryId);
+        }
+        catch (NoSuchRepositoryException e) {
+            throw new ResourceException(503, e);
+        }
     }
 
     @Override
@@ -83,6 +88,6 @@ public class ManagedRepositoryPlexusResource extends AbstractRepositoryPlexusRes
         final String repositoryId = getRepositoryId(request);
         this.getLogger().info("delete managed repository: " + repositoryId);
 
-        this.groupManagementPluginConfiguration.removeManagedRepository(repositoryId);
+        this.getGroupIdManager().removeManagedRepository(repositoryId);
     }
 }

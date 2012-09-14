@@ -2,8 +2,8 @@
 
 set -e
 
-NEXUS_VERSION=2.1.2
-NEXUS_BASE=/home/edalquist/Downloads/nexus/nexus-${NEXUS_VERSION}-bundle
+NEXUS_VERSION=2.0.6
+NEXUS_BASE=/home/edalquist/Downloads/nexus
 NEXUS_INST=${NEXUS_BASE}/nexus-${NEXUS_VERSION}
 NEXUS_WORK=${NEXUS_BASE}/sonatype-work
 
@@ -17,7 +17,7 @@ $NEXUS_INST/bin/nexus stop
 rm -Rf $NEXUS_WORK/nexus/plugin-repository/${PLUGIN_NAME}-*
 
 # Install new plugin
-mkdir $NEXUS_WORK/nexus/plugin-repository/${PLUGIN_NAME}-${PLUGIN_VERSION}
+mkdir -p $NEXUS_WORK/nexus/plugin-repository/${PLUGIN_NAME}-${PLUGIN_VERSION}
 cp target/${PLUGIN_NAME}-${PLUGIN_VERSION}.jar $NEXUS_WORK/nexus/plugin-repository/${PLUGIN_NAME}-${PLUGIN_VERSION}/
 
 # Start Nexus
