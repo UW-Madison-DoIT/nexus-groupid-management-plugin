@@ -24,7 +24,7 @@ public interface GroupIdManager {
 
     void removeManagedRepository(String repositoryId);
 
-    void addManagedRepository(String repositoryId) throws NoSuchRepositoryException;
+    void addManagedRepository(String repositoryId) throws NoSuchRepositoryException, ConfigurationException, IOException, NoSuchAuthorizationManagerException, NoSuchRoleException;
 
     ManagedRepositories getManagedRepositories();
 

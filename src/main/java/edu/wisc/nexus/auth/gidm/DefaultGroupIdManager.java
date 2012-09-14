@@ -106,16 +106,26 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
     }
 
     @Override
-    public void addManagedRepository(String repositoryId) throws NoSuchRepositoryException {
+    public void addManagedRepository(String repositoryId) throws NoSuchRepositoryException, ConfigurationException, IOException, NoSuchAuthorizationManagerException, NoSuchRoleException {
+        final Repository repository;
         try {
             //Call verifies that the repository exists
-            this.repositoryRegistry.getRepository(repositoryId);
+            repository = this.repositoryRegistry.getRepository(repositoryId);
         }
         catch (NoSuchRepositoryException e) {
             throw new NoSuchRepositoryException("Cannot manage repository that doesn't exist: " + repositoryId, e);
         }
         
         groupManagementPluginConfiguration.addManagedRepository(repositoryId);
+
+        //Go through and add all privs/roles needed for the new repository for every existing managed groupId
+        final ManagedRepository managedRepository = this.createManagedRepository(repository);
+        final ManagedGroupIds managedGroupIds = getManagedGroupIds();
+        for (final ManagedGroupId managedGroupId : managedGroupIds.getManagedGroupIds()) {
+            this.addManagedGroupId(managedGroupId.getGroupId(), managedRepository);
+        }
+        
+        this.nexusConfiguration.saveConfiguration();
     }
     
     @Override
@@ -141,6 +151,11 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
     
     @Override
     public void addManagedGroupId(String groupId) throws ConfigurationException, IOException, NoSuchAuthorizationManagerException, NoSuchRoleException {
+        addManagedGroupId(groupId, new ManagedRepository[0]);
+        this.nexusConfiguration.saveConfiguration();
+    }
+    
+    protected void addManagedGroupId(String groupId, ManagedRepository... managedRepositories) throws ConfigurationException, IOException, NoSuchAuthorizationManagerException, NoSuchRoleException {
         final Logger logger = this.getLogger();
         
         //Validate the groupId and convert it to a repo target pattern
@@ -183,8 +198,11 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
         /*
          * Adds create/read privs for each managed repository
          */
-        final ManagedRepositories managedRepositories = this.getManagedRepositories();
-        for (final ManagedRepository repository : managedRepositories.getManagedRepositories()) {
+        if (managedRepositories == null || managedRepositories.length == 0) {
+            final ManagedRepositories managedRepositoriesObj = this.getManagedRepositories();
+            managedRepositories = managedRepositoriesObj.getManagedRepositories().toArray(new ManagedRepository[0]);
+        }
+        for (final ManagedRepository repository : managedRepositories) {
             for (final String method : PRIVILEGE_METHODS) {
                 final String name = createPrivilegeName(repository, groupId, method);
                 
@@ -201,11 +219,11 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
                 priv.setName(name);
                 priv.setDescription(priv.getName());
                 priv.setType(TargetPrivilegeDescriptor.TYPE);
-    
+       
                 priv.addProperty(ApplicationPrivilegeMethodPropertyDescriptor.ID, method);
                 priv.addProperty(TargetPrivilegeRepositoryTargetPropertyDescriptor.ID, managedTarget.getId());
                 priv.addProperty(TargetPrivilegeRepositoryPropertyDescriptor.ID, repository.getId());
-    
+       
                 //Store, capturing updated reference
                 priv = authorizationManager.addPrivilege(priv);
                 
@@ -222,12 +240,14 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
         //Add the roles
         authorizationManager.addRole(deployerRole);
         authorizationManager.addRole(readOnlyRole);
-        
-        this.nexusConfiguration.saveConfiguration();
     }
     
     @Override
     public void removeManagedGroupId(String groupId) throws NoSuchAuthorizationManagerException, NoSuchPrivilegeException, NoSuchRoleException, IOException {
+        removeManagedGroupId(groupId, new ManagedRepository[0]);
+    }
+    protected void removeManagedGroupId(String groupId, ManagedRepository... managedRepositories) throws NoSuchAuthorizationManagerException, NoSuchPrivilegeException, NoSuchRoleException, IOException {
+        
         final Logger logger = getLogger();
         
         final AuthorizationManager authorizationManager = this.securitySystem.getAuthorizationManager( SECURITY_CONTEXT );
@@ -241,8 +261,11 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
         /*
          * Deletes privs
          */
-        final ManagedRepositories managedRepositories = this.getManagedRepositories();
-        for (final ManagedRepository repository : managedRepositories.getManagedRepositories()) {
+        if (managedRepositories == null || managedRepositories.length == 0) {
+            final ManagedRepositories managedRepositoriesObj = this.getManagedRepositories();
+            managedRepositories = managedRepositoriesObj.getManagedRepositories().toArray(new ManagedRepository[0]);
+        }
+        for (final ManagedRepository repository : managedRepositories) {
             for (final String method : PRIVILEGE_METHODS) {
                 final String name = createPrivilegeName(repository, groupId, method);
                 final Privilege priv = existingPrivs.remove(name);
@@ -253,6 +276,7 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
             }
         }
         
+        //TODO this won't work for remove, only want to run the remove for the roles and target if the groupId is actually being removed and not just a repository
         
         //Delete roles
         final String deployerRoleId = this.createRoleId(groupId, DEPLOYER_ROLE_SUFFIX);
