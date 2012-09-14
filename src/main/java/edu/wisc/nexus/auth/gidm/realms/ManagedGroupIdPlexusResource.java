@@ -10,33 +10,26 @@ import javax.ws.rs.Produces;
 
 import org.codehaus.enunciate.contract.jaxrs.ResourceMethodSignature;
 import org.codehaus.plexus.component.annotations.Component;
-import org.codehaus.plexus.component.annotations.Requirement;
 import org.restlet.Context;
 import org.restlet.data.Request;
 import org.restlet.data.Response;
+import org.restlet.data.Status;
 import org.restlet.resource.ResourceException;
 import org.restlet.resource.Variant;
-import org.sonatype.nexus.proxy.target.Target;
-import org.sonatype.nexus.rest.model.RepositoryResourceResponse;
-import org.sonatype.nexus.rest.model.RepositoryTargetResource;
 import org.sonatype.nexus.rest.repositories.AbstractRepositoryPlexusResource;
-import org.sonatype.nexus.rest.repotargets.AbstractRepositoryTargetPlexusResource;
 import org.sonatype.nexus.rest.repotargets.RepositoryTargetListPlexusResource;
 import org.sonatype.plexus.rest.resource.PathProtectionDescriptor;
 import org.sonatype.plexus.rest.resource.PlexusResource;
 
-import edu.wisc.nexus.auth.gidm.config.GroupManagementPluginConfiguration;
+import edu.wisc.nexus.auth.gidm.om.v1_0_0.ManagedGroupId;
+import edu.wisc.nexus.auth.gidm.om.v1_0_0.ManagedGroupIds;
 
 @Component(role = PlexusResource.class, hint = "ManagedGroupIdPlexusResource")
 @Path(RepositoryTargetListPlexusResource.RESOURCE_URI)
 @Produces({ "application/xml", "application/json" })
 @Consumes({ "application/xml", "application/json" })
-public class ManagedGroupIdPlexusResource extends AbstractRepositoryTargetPlexusResource {
-    public static final String REPOSITORY_TARGET_ID_KEY = "repositoryTargetId";
-    public static final String RESOURCE_URI = "/gidm/managed_groupids/{" + REPOSITORY_TARGET_ID_KEY + "}";
-
-    @Requirement
-    private GroupManagementPluginConfiguration groupManagementPluginConfiguration;
+public class ManagedGroupIdPlexusResource extends AbstractGroupdIdManagementPlexusResource {
+    public static final String RESOURCE_URI = "/gidm/managed_groupids/{" + MANAGED_GROUPID_KEY + "}";
 
     public ManagedGroupIdPlexusResource() {
         this.setModifiable(true);
@@ -44,7 +37,6 @@ public class ManagedGroupIdPlexusResource extends AbstractRepositoryTargetPlexus
 
     @Override
     public Object getPayloadInstance() {
-        //TODO needed?
         return null;
     }
 
@@ -60,39 +52,53 @@ public class ManagedGroupIdPlexusResource extends AbstractRepositoryTargetPlexus
 
     @Override
     @GET
-    @ResourceMethodSignature(pathParams = { @PathParam(AbstractRepositoryPlexusResource.REPOSITORY_ID_KEY) }, output = RepositoryTargetResource.class)
+    @ResourceMethodSignature(pathParams = { @PathParam(AbstractRepositoryPlexusResource.REPOSITORY_ID_KEY) }, output = ManagedGroupId.class)
     public Object get(Context context, Request request, Response response, Variant variant) throws ResourceException {
-        this.getLogger().info("get");
-        final String repositoryTargetId = getRepositoryTargetId(request);
-        final Target repositoryTarget = this.getTargetRegistry().getRepositoryTarget(repositoryTargetId);
-        return this.getNexusToRestResource(repositoryTarget, request);
+        final String managedGroupId = getManagedGroupId(request);
+        this.getLogger().info("get " + managedGroupId);
+        
+        final ManagedGroupIds managedGroupIds = this.getGroupIdManager().getManagedGroupIds();
+        if (managedGroupIds.getManagedGroupIds().contains(managedGroupId)) {
+            final ManagedGroupId result = new ManagedGroupId();
+            result.setGroupId(managedGroupId);
+            return result;
+        }
+        
+        //requested groupId doesn't exist
+        return null;
     }
 
     @Override
     @PUT
-    @ResourceMethodSignature(pathParams = { @PathParam(AbstractRepositoryPlexusResource.REPOSITORY_ID_KEY) }, input = RepositoryResourceResponse.class, output = RepositoryResourceResponse.class)
+    @ResourceMethodSignature(pathParams = { @PathParam(AbstractRepositoryPlexusResource.REPOSITORY_ID_KEY) }, input = ManagedGroupId.class, output = ManagedGroupId.class)
     public Object put(Context context, Request request, Response response, Object payload) throws ResourceException {
-        final String repositoryId = getRepositoryTargetId(request);
-        this.getLogger().info("add managed groupId: " + repositoryId);
+        final String managedGroupId = getManagedGroupId(request);
+        this.getLogger().info("add managed groupId: " + managedGroupId);
+        
+        try {
+            this.getGroupIdManager().addManagedGroupId(managedGroupId);
+        }
+        catch (Exception e) {
+            throw new ResourceException(Status.CLIENT_ERROR_CONFLICT, "Failed to add managed GroupId '" + managedGroupId + "'", e);
+        }
 
-        //TODO add new groupId
-
-        return null;
+        final ManagedGroupId result = new ManagedGroupId();
+        result.setGroupId(managedGroupId);
+        return result;
     }
 
     @Override
     @DELETE
     @ResourceMethodSignature(pathParams = { @PathParam(AbstractRepositoryPlexusResource.REPOSITORY_ID_KEY) })
-    public void delete(Context context, Request request, Response response) {
-        final String repositoryId = getRepositoryTargetId(request);
-        this.getLogger().info("delete managed groupId: " + repositoryId);
+    public void delete(Context context, Request request, Response response) throws ResourceException {
+        final String managedGroupId = getManagedGroupId(request);
+        this.getLogger().info("delete managed groupId: " + managedGroupId);
 
-        //TODO delete groupId
-    }
-    
-    
-    protected String getRepositoryTargetId( Request request )
-    {
-        return request.getAttributes().get( REPOSITORY_TARGET_ID_KEY ).toString();
+        try {
+            this.getGroupIdManager().removeManagedGroupId(managedGroupId);
+        }
+        catch (Exception e) {
+            throw new ResourceException(Status.CLIENT_ERROR_CONFLICT, "Failed to delete managed GroupId '" + managedGroupId + "'", e);
+        }
     }
 }

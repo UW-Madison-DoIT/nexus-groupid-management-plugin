@@ -99,5 +99,43 @@
                 </field>
             </fields>
         </class>
+        <class>
+            <name>ManagedGroupIds</name>
+            <version>1.0.0+</version>
+            <annotations>
+              <annotation>@javax.xml.bind.annotation.XmlType( name = "managed-group-ids" )</annotation>
+              <annotation>@javax.xml.bind.annotation.XmlAccessorType(javax.xml.bind.annotation.XmlAccessType.FIELD)</annotation>
+            </annotations>
+            <fields>
+                <field>
+                    <name>managedGroupIds</name>
+                    <version>1.0.0+</version>
+                    <description>The list of groupIds to management applies.</description>
+                    <type>Set</type>
+                    <required>true</required>
+                    <association>
+                        <type>ManagedGroupId</type>
+                        <multiplicity>*</multiplicity>
+                    </association>
+                </field>
+            </fields>
+        </class>
+        <class>
+            <name>ManagedGroupId</name>
+            <version>1.0.0+</version>
+            <annotations>
+              <annotation>@javax.xml.bind.annotation.XmlType( name = "managed-group-id" )</annotation>
+              <annotation>@javax.xml.bind.annotation.XmlAccessorType(javax.xml.bind.annotation.XmlAccessType.FIELD)</annotation>
+            </annotations>
+            <fields>
+                <field>
+                    <name>groupId</name>
+                    <version>1.0.0+</version>
+                    <description>The groupId that is managed.</description>
+                    <type>String</type>
+                    <required>true</required>
+                </field>
+            </fields>
+        </class>
     </classes>
 </model>

@@ -13,6 +13,7 @@ import org.codehaus.plexus.component.annotations.Component;
 import org.restlet.Context;
 import org.restlet.data.Request;
 import org.restlet.data.Response;
+import org.restlet.data.Status;
 import org.restlet.resource.ResourceException;
 import org.restlet.resource.Variant;
 import org.sonatype.nexus.proxy.NoSuchRepositoryException;
@@ -60,7 +61,7 @@ public class ManagedRepositoryPlexusResource extends AbstractGroupdIdManagementP
             return getGroupIdManager().getAsManagedRepository(repositoryId);
         }
         catch (NoSuchRepositoryException e) {
-            throw new ResourceException(503, e);
+            throw new ResourceException(Status.CLIENT_ERROR_CONFLICT, e);
         }
     }
 
@@ -77,7 +78,7 @@ public class ManagedRepositoryPlexusResource extends AbstractGroupdIdManagementP
             return groupIdManager.getAsManagedRepository(repositoryId);
         }
         catch (NoSuchRepositoryException e) {
-            throw new ResourceException(503, e);
+            throw new ResourceException(Status.CLIENT_ERROR_CONFLICT, e);
         }
     }
 

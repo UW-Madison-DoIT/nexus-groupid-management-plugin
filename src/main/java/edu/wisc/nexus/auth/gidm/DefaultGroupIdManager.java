@@ -27,24 +27,37 @@ import org.sonatype.nexus.proxy.target.TargetRegistry;
 import org.sonatype.security.SecuritySystem;
 import org.sonatype.security.authorization.AuthorizationManager;
 import org.sonatype.security.authorization.NoSuchAuthorizationManagerException;
+import org.sonatype.security.authorization.NoSuchPrivilegeException;
 import org.sonatype.security.authorization.NoSuchRoleException;
 import org.sonatype.security.authorization.Privilege;
 import org.sonatype.security.authorization.Role;
 import org.sonatype.security.realms.privileges.application.ApplicationPrivilegeMethodPropertyDescriptor;
 
+import com.google.common.collect.ImmutableSet;
+
 import edu.wisc.nexus.auth.gidm.config.GroupManagementPluginConfiguration;
+import edu.wisc.nexus.auth.gidm.om.v1_0_0.ManagedGroupId;
+import edu.wisc.nexus.auth.gidm.om.v1_0_0.ManagedGroupIds;
 import edu.wisc.nexus.auth.gidm.om.v1_0_0.ManagedRepositories;
 import edu.wisc.nexus.auth.gidm.om.v1_0_0.ManagedRepository;
 
 @Component( role = GroupIdManager.class )
 public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupIdManager {
+    private static final String READONLY_ROLE_SUFFIX = "READONLY";
+    private static final String DEPLOYER_ROLE_SUFFIX = "DEPLOYER";
     private static final String SECURITY_CONTEXT = "default";
     private static final String GIDM_PREFIX = "GIDM";
     private static final String GIDM_NAME_PREFIX = GIDM_PREFIX + ": ";
     private static final String GIDM_ID_PREFIX = GIDM_PREFIX + "_";
+    
     private static final ContentClass M2_CONTENT_CLASS = new Maven2ContentClass();
+    
     private static final Pattern GROUPID_DELIM = Pattern.compile("\\.");
     private static final Pattern VALID_GROUPID_PART = Pattern.compile("^([a-zA-Z_]{1}[a-zA-Z0-9_]*(\\.[a-zA-Z_]{1}[a-zA-Z0-9_]*)*)?$");
+    
+    private static final Set<String> DEPLOYER_METHODS = ImmutableSet.of("create", "read");
+    private static final Set<String> READONLY_METHODS = ImmutableSet.of("read");
+    private static final Set<String> PRIVILEGE_METHODS = ImmutableSet.<String>builder().addAll(DEPLOYER_METHODS).addAll(READONLY_METHODS).build();
     
     @Requirement( hint = "protected" )
     private RepositoryRegistry repositoryRegistry;
@@ -92,13 +105,6 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
         return createManagedRepository(repository);
     }
 
-    protected ManagedRepository createManagedRepository(final Repository repository) {
-        final ManagedRepository managedRepository = new ManagedRepository();
-        managedRepository.setId(repository.getId());
-        managedRepository.setName(repository.getName());
-        return managedRepository;
-    }
-
     @Override
     public void addManagedRepository(String repositoryId) throws NoSuchRepositoryException {
         try {
@@ -118,13 +124,15 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
     }
     
     @Override
-    public Set<String> getManagedGroupIds() {
-        final Set<String> managedGroupIds = new HashSet<String>();
+    public ManagedGroupIds getManagedGroupIds() {
+        final ManagedGroupIds managedGroupIds = new ManagedGroupIds();
         
         for (final Target target : this.targetRegistry.getTargetsForContentClass(M2_CONTENT_CLASS)) {
             final String id = target.getId();
             if (id.startsWith(GIDM_ID_PREFIX)) {
-                managedGroupIds.add(id.substring(GIDM_ID_PREFIX.length()));
+                final String groupId = id.substring(GIDM_ID_PREFIX.length());
+                final ManagedGroupId managedGroupId = createManagedGroupId(groupId);
+                managedGroupIds.addManagedGroupId(managedGroupId);
             }
         }
         
@@ -158,11 +166,11 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
         final AuthorizationManager authorizationManager = this.securitySystem.getAuthorizationManager( SECURITY_CONTEXT );
         
         //Get or Create the deployer and readonly Roles, need these here to add the privs to them as they are created in the next step
-        final Role deployerRole = getOrCreateRole(authorizationManager, groupId, "DEPLOYER");
+        final Role deployerRole = getOrCreateRole(authorizationManager, groupId, DEPLOYER_ROLE_SUFFIX);
         final Set<String> deployerPrivs = deployerRole.getPrivileges();
         deployerPrivs.clear();
 
-        final Role readOnlyRole = getOrCreateRole(authorizationManager, groupId, "READONLY");
+        final Role readOnlyRole = getOrCreateRole(authorizationManager, groupId, READONLY_ROLE_SUFFIX);
         final Set<String> readOnlyPrivs = readOnlyRole.getPrivileges();
         readOnlyPrivs.clear();
 
@@ -177,10 +185,8 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
          */
         final ManagedRepositories managedRepositories = this.getManagedRepositories();
         for (final ManagedRepository repository : managedRepositories.getManagedRepositories()) {
-            //TODO do these method names come from somewhere I can source?
-            //note only bother setting up create and read privs
-            for (final String method : new String[] { "create", "read" }) {
-                final String name = GIDM_NAME_PREFIX + repository.getName() + " - (" + method + ")";
+            for (final String method : PRIVILEGE_METHODS) {
+                final String name = createPrivilegeName(repository, groupId, method);
                 
                 //Check for existing priv before creating a new one
                 Privilege priv = existingPrivs.get(name);
@@ -204,8 +210,10 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
                 priv = authorizationManager.addPrivilege(priv);
                 
                 //Build up the priv lists
-                deployerPrivs.add(priv.getId());
-                if ("read".equals(method)) {
+                if (DEPLOYER_METHODS.contains(method)) {
+                    deployerPrivs.add(priv.getId());
+                }
+                if (READONLY_METHODS.contains(method)) {
                     readOnlyPrivs.add(priv.getId());
                 }
             }
@@ -217,9 +225,72 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
         
         this.nexusConfiguration.saveConfiguration();
     }
+    
+    @Override
+    public void removeManagedGroupId(String groupId) throws NoSuchAuthorizationManagerException, NoSuchPrivilegeException, NoSuchRoleException, IOException {
+        final Logger logger = getLogger();
+        
+        final AuthorizationManager authorizationManager = this.securitySystem.getAuthorizationManager( SECURITY_CONTEXT );
+        
+        //Assumes priv name is unique
+        final Map<String, Privilege> existingPrivs = new HashMap<String, Privilege>();
+        for (final Privilege priv : authorizationManager.listPrivileges()) {
+            existingPrivs.put(priv.getName(), priv);
+        }
+        
+        /*
+         * Deletes privs
+         */
+        final ManagedRepositories managedRepositories = this.getManagedRepositories();
+        for (final ManagedRepository repository : managedRepositories.getManagedRepositories()) {
+            for (final String method : PRIVILEGE_METHODS) {
+                final String name = createPrivilegeName(repository, groupId, method);
+                final Privilege priv = existingPrivs.remove(name);
+                if (priv != null) {
+                    authorizationManager.deletePrivilege(priv.getId());
+                    logger.info("Deleted privilege: " + priv.getName());
+                }
+            }
+        }
+        
+        
+        //Delete roles
+        final String deployerRoleId = this.createRoleId(groupId, DEPLOYER_ROLE_SUFFIX);
+        authorizationManager.deleteRole(deployerRoleId);
+        logger.info("Deleted role: " + deployerRoleId);
+
+        final String readOnlyRoleId = this.createRoleId(groupId, READONLY_ROLE_SUFFIX);
+        authorizationManager.deleteRole(readOnlyRoleId);
+        logger.info("Deleted role: " + readOnlyRoleId);
+        
+        
+        //delete the repository target
+        final String targetId = GIDM_ID_PREFIX + groupId;
+        this.targetRegistry.removeRepositoryTarget(targetId);
+        logger.info("Deleted repository target: " + targetId);
+        
+        this.nexusConfiguration.saveConfiguration();
+    }
+
+    protected ManagedRepository createManagedRepository(final Repository repository) {
+        final ManagedRepository managedRepository = new ManagedRepository();
+        managedRepository.setId(repository.getId());
+        managedRepository.setName(repository.getName());
+        return managedRepository;
+    }
+    
+    protected ManagedGroupId createManagedGroupId(final String groupId) {
+        final ManagedGroupId managedGroupId = new ManagedGroupId();
+        managedGroupId.setGroupId(groupId);
+        return managedGroupId;
+    }
+
+    protected String createPrivilegeName(final ManagedRepository repository, final String groupId, final String method) {
+        return GIDM_NAME_PREFIX + repository.getName() + " - " + groupId + " - (" + method + ")";
+    }
 
     protected Role getOrCreateRole(AuthorizationManager authorizationManager, String groupId, String roleSuffix) {
-        final String roleId = GIDM_ID_PREFIX + groupId + "_" + roleSuffix;
+        final String roleId = createRoleId(groupId, roleSuffix);
         
         Role role = null;
         try {
@@ -236,6 +307,10 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
         }
         
         return role;
+    }
+
+    protected String createRoleId(String groupId, String roleSuffix) {
+        return GIDM_ID_PREFIX + groupId + "_" + roleSuffix;
     }
 
     protected Target findRepositoryTarget(final String targetName) {
@@ -258,16 +333,11 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
          
             targetPattern.append("/").append(idPart);
         }
-        targetPattern.append("/*");
+        targetPattern.append("/.*");
         final String pattern = targetPattern.toString();
         
         this.getLogger().info("Converted groupId '" + groupId + "' to target pattern '" + pattern + "'");
         
         return pattern;
-    }
-    
-    @Override
-    public void removeManagedGroupId(String groupId) {
-        
     }
 }

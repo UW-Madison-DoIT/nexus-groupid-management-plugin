@@ -28,13 +28,13 @@ $(function() {
             //Remove any existing data
             managedGroupIds.find("option").remove();
             
-            //Add the list of all repositories to the unmanaged side and sort the options
-            if (data.data != undefined) {
-	            $.each(data.data, function() {
-	                unmanagedRepos.append($("<option />").val(this.id).text(this.name));
+            if (data.managedGroupIds != undefined) {
+	            //Add the list of all repositories to the unmanaged side and sort the options
+	            $.each(data.managedGroupIds, function() {
+	            	managedGroupIds.append($("<option />").val(this.groupId).text(this.groupId));
 	            });
+	            sortOptions(managedGroupIds);
             }
-            sortOptions(managedGroupIds);
         });
 	};
     
@@ -55,11 +55,11 @@ $(function() {
                     type:'PUT',
                     contentType:'application/json; charset=utf-8',
                     dataType:'json',
-                    success:loadManagedGroupIds,
+                    success:function() {
+                    	managedGroupIds.append($("<option />").val(id).text(id));
+                    },
                     data:{
-                        data:{
-                            id:id
-                        }
+                       	groupId:id
                     }
                 });
             	$(this).dialog( "close" );

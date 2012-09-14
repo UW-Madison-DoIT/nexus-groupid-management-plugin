@@ -10,6 +10,9 @@ public abstract class AbstractGroupdIdManagementPlexusResource extends AbstractP
     /** Key to store Repo with which we work against. */
     public static final String REPOSITORY_ID_KEY = "repositoryId";
 
+    /** Key to store Repo Target with which we work against. */
+    public static final String MANAGED_GROUPID_KEY = "repositoryTargetId";
+
     @Requirement
     private GroupIdManager groupIdManager;
 
@@ -19,11 +22,15 @@ public abstract class AbstractGroupdIdManagementPlexusResource extends AbstractP
 
     /**
      * Pull the repository Id out of the Request.
-     * 
-     * @param request
-     * @return
      */
     protected String getRepositoryId(Request request) {
         return request.getAttributes().get(REPOSITORY_ID_KEY).toString();
+    }
+
+    /**
+     * Pull the managed groupId out of the Request.
+     */
+    protected String getManagedGroupId(Request request) {
+        return request.getAttributes().get(MANAGED_GROUPID_KEY).toString();
     }
 }
