@@ -4,27 +4,14 @@
         <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/themes/base/jquery.ui.all.css">
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js"></script>
         <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js"></script>
+        <script src="../js/nexus-groupid-management-plugin.js"></script>
         <script type="text/javascript">
 $(function() {
-	var nexusConfig = {};
-	
 	var managedGroupIds = $('#managedGroupIds');
-	
-	var sortOptions = function(selectBox) {
-		var options = selectBox.find("option");
-	
-		options.sort(function(a,b) {
-		    if (a.text > b.text) return 1;
-		    else if (a.text < b.text) return -1;
-		    else return 0
-		})
-	
-		selectBox.empty().append( options );
-	};
 	
 	var loadManagedGroupIds = function() {
         //Get the unmanaged repositories 
-        $.getJSON(nexusConfig.baseUrl + '/service/local/gidm/managed_groupids', function(data) {
+        $.getJSON(gidm.nexusConfig.baseUrl + '/service/local/gidm/managed_groupids', function(data) {
             //Remove any existing data
             managedGroupIds.find("option").remove();
             
@@ -33,7 +20,7 @@ $(function() {
 	            $.each(data.managedGroupIds, function() {
 	            	managedGroupIds.append($("<option />").val(this.groupId).text(this.groupId));
 	            });
-	            sortOptions(managedGroupIds);
+	            gidm.sortOptions(managedGroupIds);
             }
         });
 	};
@@ -51,7 +38,7 @@ $(function() {
             "Create GroupId": function() {
             	var id = groupId.val();
             	$.ajax({
-            		url:nexusConfig.baseUrl + '/service/local/gidm/managed_groupids/' + id,
+            		url:gidm.nexusConfig.baseUrl + '/service/local/gidm/managed_groupids/' + id,
                     type:'PUT',
                     contentType:'application/json; charset=utf-8',
                     dataType:'json',
@@ -83,7 +70,7 @@ $(function() {
             var id = option.val();
             
 	    	$.ajax({
-	            url:nexusConfig.baseUrl + '/service/local/gidm/managed_groupids/' + id,
+	            url:gidm.nexusConfig.baseUrl + '/service/local/gidm/managed_groupids/' + id,
 	            type:'DELETE',
 	            success:function() {
 	            	option.remove();
@@ -92,15 +79,18 @@ $(function() {
     	});
     });
 	
-	//Load nexus config and trigger managed repos loading 
-	$.getJSON('../../../service/local/status', function(data) {
-		nexusConfig = data.data;
-		loadManagedGroupIds();
-	});
+
+    gidm.init(function() {
+    	loadManagedGroupIds();
+    });
 });
         </script>
     </head>
     <body>
+        <div>
+            <a class="gidm_link" target="gidm" href="static/gidm/html/configManagedRepos.html">Configure Managed Repositories</a>
+            <a class="gidm_link" target="gidm" href="static/gidm/html/configManagedGroupIds.html">Configure Managed GroupIds</a>
+        </div>
         <form id="managedGroupIdsForm">
             <table>
                 <tr>

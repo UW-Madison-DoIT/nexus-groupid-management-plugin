@@ -1,25 +1,14 @@
 <html>
     <head>
         <title>Configure Managed Repositories</title>
+        <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/themes/base/jquery.ui.all.css">
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js"></script>
+        <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js"></script>
+        <script src="../js/nexus-groupid-management-plugin.js"></script>
         <script type="text/javascript">
 $(function() {
-	var nexusConfig = {};
-	
 	var unmanagedRepos = $('#unmanagedRepos');
     var managedRepos = $('#managedRepos');
-	
-	var sortOptions = function(selectBox) {
-		var options = selectBox.find("option");
-	
-		options.sort(function(a,b) {
-		    if (a.text > b.text) return 1;
-		    else if (a.text < b.text) return -1;
-		    else return 0
-		})
-	
-		selectBox.empty().append( options );
-	};
 	
 	var moveOptions = function(from, to, moveCallback) {
 		from.find("option:selected").each(function() {
@@ -27,7 +16,7 @@ $(function() {
 			moveCallback(option.val(), function() {
 				option.remove();
 		        to.append(option);
-		        sortOptions(to);
+		        gidm.sortOptions(to);
 		        to.find("option:selected").removeAttr("selected");
 			});
 	    });
@@ -35,7 +24,7 @@ $(function() {
 	
 	var loadManagedRepos = function() {
 	    //Get the managed repositories 
-	    $.getJSON(nexusConfig.baseUrl + '/service/local/gidm/managed_repositories', function(data) {
+	    $.getJSON(gidm.nexusConfig.baseUrl + '/service/local/gidm/managed_repositories', function(data) {
 	    	//Remove any existing data
             unmanagedRepos.find("option").remove();
             managedRepos.find("option").remove();
@@ -44,13 +33,13 @@ $(function() {
             $.each(data.unmanagedRepositories, function() {
                 unmanagedRepos.append($("<option />").val(this.id).text(this.name));
             });
-            sortOptions(unmanagedRepos);
+            gidm.sortOptions(unmanagedRepos);
 	    	
 	    	//Add the list of managed repositories and remove the managed repos from the unmanaged list 
 	        $.each(data.managedRepositories, function() {
 	        	managedRepos.append($("<option />").val(this.id).text(this.name));
 	        });
-	        sortOptions(managedRepos);
+	        gidm.sortOptions(managedRepos);
 	    });
 	};
 	
@@ -58,7 +47,7 @@ $(function() {
 	$("#moveLeft").click(function() {
 		moveOptions(managedRepos, unmanagedRepos, function(id, successCallback) {
 	        $.ajax({
-	        	url:nexusConfig.baseUrl + '/service/local/gidm/managed_repositories/' + id,
+	        	url:gidm.nexusConfig.baseUrl + '/service/local/gidm/managed_repositories/' + id,
 	            type:'DELETE',
 	            success:successCallback
 	        });
@@ -69,7 +58,7 @@ $(function() {
 	$("#moveRight").click(function() {
 		moveOptions(unmanagedRepos, managedRepos, function(id, successCallback) {
 			$.ajax({
-	            url:nexusConfig.baseUrl + '/service/local/gidm/managed_repositories/' + id,
+	            url:gidm.nexusConfig.baseUrl + '/service/local/gidm/managed_repositories/' + id,
 	            type:'PUT',
 	            contentType:'application/json; charset=utf-8',
 	            dataType:'json',
@@ -85,16 +74,18 @@ $(function() {
 	
 	$("#refresh").click(loadManagedRepos);
 	
-	//Load nexus config and trigger managed repos loading 
-	$.getJSON('../../../service/local/status', function(data) {
-		nexusConfig = data.data;
-		loadManagedRepos();
-	});
+    gidm.init(function() {
+    	loadManagedRepos();
+    });
 });
         </script>
     </head>
     <body>
-        <form id="mangedReposForm">
+        <div>
+            <a class="gidm_link" target="gidm" href="static/gidm/html/configManagedRepos.html">Configure Managed Repositories</a>
+            <a class="gidm_link" target="gidm" href="static/gidm/html/configManagedGroupIds.html">Configure Managed GroupIds</a>
+        </div>
+        <form id="managedGroupIdsForm">
             <table>
                 <tr>
                     <td colspan="3">
