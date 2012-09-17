@@ -43,8 +43,8 @@ Sonatype.repoServer.GroupManagementConfigPanel = function( config ) {
               items : [{
                     xtype : 'panel',
                     layout : 'fit',
-                    html : '<div class="little-padding"><a target="gidm" href="' + Sonatype.config.resourcePath  + '/static/gidm/html/configManagedRepos.html">Configure Managed Repositories</a></div>' +
-                           '<div class="little-padding"><a target="gidm" href="' + Sonatype.config.resourcePath  + '/static/gidm/html/configManagedGroupIds.html">Configure Managed GroupIds</a></div>'
+                    html : '<div class="little-padding"><a href="' + Sonatype.config.resourcePath  + '/static/gidm/html/configManagedRepos.html">Configure Managed Repositories</a></div>' +
+                           '<div class="little-padding"><a href="' + Sonatype.config.resourcePath  + '/static/gidm/html/configManagedGroupIds.html">Configure Managed GroupIds</a></div>'
                   }]
             }]
       });
