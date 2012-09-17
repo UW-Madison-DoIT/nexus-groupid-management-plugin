@@ -16,6 +16,12 @@
     <prerequisites>
         <maven>3.0.0</maven>
     </prerequisites>
+
+    <scm>
+        <connection>scm:git:git://github.com/UW-Madison-DoIT/nexus-groupid-management-plugin.git</connection>
+        <developerConnection>scm:git@github.com:UW-Madison-DoIT/nexus-groupid-management-plugin.git</developerConnection>
+        <url>https://github.com/UW-Madison-DoIT/nexus-groupid-management-plugin</url>
+    </scm>
     
     <properties>
         <nexus.version>2.0.6</nexus.version>
