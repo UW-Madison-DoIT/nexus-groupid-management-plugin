@@ -10,7 +10,7 @@
 
     <groupId>edu.wisc.nexus.plugin</groupId>
     <artifactId>nexus-groupid-management-plugin</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1-SNAPSHOT</version>
     <packaging>nexus-plugin</packaging>
     
     <prerequisites>
