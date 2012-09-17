@@ -61,6 +61,7 @@ public class ManagedRepositoryPlexusResource extends AbstractGroupdIdManagementP
             return getGroupIdManager().getAsManagedRepository(repositoryId);
         }
         catch (NoSuchRepositoryException e) {
+            this.getLogger().error("Failed to retrieve managed repository: " + repositoryId, e);
             throw new ResourceException(Status.CLIENT_ERROR_CONFLICT, e);
         }
     }
@@ -77,7 +78,8 @@ public class ManagedRepositoryPlexusResource extends AbstractGroupdIdManagementP
             groupIdManager.addManagedRepository(repositoryId);
             return groupIdManager.getAsManagedRepository(repositoryId);
         }
-        catch (NoSuchRepositoryException e) {
+        catch (Exception e) {
+            this.getLogger().error("Failed to add managed repository: " + repositoryId, e);
             throw new ResourceException(Status.CLIENT_ERROR_CONFLICT, e);
         }
     }
@@ -85,10 +87,16 @@ public class ManagedRepositoryPlexusResource extends AbstractGroupdIdManagementP
     @Override
     @DELETE
     @ResourceMethodSignature(pathParams = { @PathParam(AbstractRepositoryPlexusResource.REPOSITORY_ID_KEY) })
-    public void delete(Context context, Request request, Response response) {
+    public void delete(Context context, Request request, Response response) throws ResourceException {
         final String repositoryId = getRepositoryId(request);
         this.getLogger().info("delete managed repository: " + repositoryId);
-
-        this.getGroupIdManager().removeManagedRepository(repositoryId);
+        
+        try {
+            this.getGroupIdManager().removeManagedRepository(repositoryId);
+        }
+        catch (Exception e) {
+            this.getLogger().error("Failed to delete managed repository: " + repositoryId, e);
+            throw new ResourceException(Status.CLIENT_ERROR_CONFLICT, e);
+        }
     }
 }

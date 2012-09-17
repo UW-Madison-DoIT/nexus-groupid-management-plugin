@@ -79,6 +79,7 @@ public class ManagedGroupIdPlexusResource extends AbstractGroupdIdManagementPlex
             this.getGroupIdManager().addManagedGroupId(managedGroupId);
         }
         catch (Exception e) {
+            this.getLogger().error("Failed to add managed GroupId '" + managedGroupId + "'", e);
             throw new ResourceException(Status.CLIENT_ERROR_CONFLICT, "Failed to add managed GroupId '" + managedGroupId + "'", e);
         }
 
@@ -98,6 +99,7 @@ public class ManagedGroupIdPlexusResource extends AbstractGroupdIdManagementPlex
             this.getGroupIdManager().removeManagedGroupId(managedGroupId);
         }
         catch (Exception e) {
+            this.getLogger().error("Failed to delete managed GroupId '" + managedGroupId + "'", e);
             throw new ResourceException(Status.CLIENT_ERROR_CONFLICT, "Failed to delete managed GroupId '" + managedGroupId + "'", e);
         }
     }

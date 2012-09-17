@@ -13,6 +13,7 @@ import org.codehaus.plexus.component.annotations.Requirement;
 import org.codehaus.plexus.logging.AbstractLogEnabled;
 import org.codehaus.plexus.logging.Logger;
 import org.sonatype.configuration.ConfigurationException;
+import org.sonatype.configuration.validation.InvalidConfigurationException;
 import org.sonatype.nexus.configuration.application.NexusConfiguration;
 import org.sonatype.nexus.jsecurity.realms.TargetPrivilegeDescriptor;
 import org.sonatype.nexus.jsecurity.realms.TargetPrivilegeRepositoryPropertyDescriptor;
@@ -122,15 +123,24 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
         final ManagedRepository managedRepository = this.createManagedRepository(repository);
         final ManagedGroupIds managedGroupIds = getManagedGroupIds();
         for (final ManagedGroupId managedGroupId : managedGroupIds.getManagedGroupIds()) {
-            this.addManagedGroupId(managedGroupId.getGroupId(), managedRepository);
+            this.addRepositoryForGroupId(managedGroupId.getGroupId(), managedRepository);
         }
         
         this.nexusConfiguration.saveConfiguration();
     }
     
     @Override
-    public void removeManagedRepository(String repositoryId) {
+    public void removeManagedRepository(String repositoryId) throws NoSuchRepositoryException, NoSuchPrivilegeException, NoSuchAuthorizationManagerException, IOException {
+        final ManagedRepository repository = this.getAsManagedRepository(repositoryId);
+        
         groupManagementPluginConfiguration.removeManagedRepository(repositoryId);
+        
+        final ManagedGroupIds managedGroupIds = getManagedGroupIds();
+        for (final ManagedGroupId managedGroupId : managedGroupIds.getManagedGroupIds()) {
+            this.removeRepositoryForGroupId(managedGroupId.getGroupId(), repository);
+        }
+        
+        this.nexusConfiguration.saveConfiguration();
     }
     
     @Override
@@ -151,11 +161,6 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
     
     @Override
     public void addManagedGroupId(String groupId) throws ConfigurationException, IOException, NoSuchAuthorizationManagerException, NoSuchRoleException {
-        addManagedGroupId(groupId, new ManagedRepository[0]);
-        this.nexusConfiguration.saveConfiguration();
-    }
-    
-    protected void addManagedGroupId(String groupId, ManagedRepository... managedRepositories) throws ConfigurationException, IOException, NoSuchAuthorizationManagerException, NoSuchRoleException {
         final Logger logger = this.getLogger();
         
         //Validate the groupId and convert it to a repo target pattern
@@ -163,7 +168,7 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
 
         //Get or Create the Target and persist the changes
         final String targetId = GIDM_ID_PREFIX + groupId;
-        Target managedTarget = findRepositoryTarget(targetId);
+        Target managedTarget = this.targetRegistry.getRepositoryTarget(targetId);
         if (managedTarget == null) {
             //Just using the name as the id ... hope thats ok!
             managedTarget = new Target(targetId, GIDM_NAME_PREFIX + groupId, M2_CONTENT_CLASS, Collections.singleton(targetPattern));
@@ -198,56 +203,26 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
         /*
          * Adds create/read privs for each managed repository
          */
-        if (managedRepositories == null || managedRepositories.length == 0) {
-            final ManagedRepositories managedRepositoriesObj = this.getManagedRepositories();
-            managedRepositories = managedRepositoriesObj.getManagedRepositories().toArray(new ManagedRepository[0]);
-        }
-        for (final ManagedRepository repository : managedRepositories) {
-            for (final String method : PRIVILEGE_METHODS) {
-                final String name = createPrivilegeName(repository, groupId, method);
-                
-                //Check for existing priv before creating a new one
-                Privilege priv = existingPrivs.get(name);
-                if (priv == null) {
-                    priv = new Privilege();
-                    logger.info("Creating new privilege: " + name);
-                }
-                else {
-                    logger.info("Updating existing privilege: " + name);
-                }
-                
-                priv.setName(name);
-                priv.setDescription(priv.getName());
-                priv.setType(TargetPrivilegeDescriptor.TYPE);
-       
-                priv.addProperty(ApplicationPrivilegeMethodPropertyDescriptor.ID, method);
-                priv.addProperty(TargetPrivilegeRepositoryTargetPropertyDescriptor.ID, managedTarget.getId());
-                priv.addProperty(TargetPrivilegeRepositoryPropertyDescriptor.ID, repository.getId());
-       
-                //Store, capturing updated reference
-                priv = authorizationManager.addPrivilege(priv);
-                
-                //Build up the priv lists
-                if (DEPLOYER_METHODS.contains(method)) {
-                    deployerPrivs.add(priv.getId());
-                }
-                if (READONLY_METHODS.contains(method)) {
-                    readOnlyPrivs.add(priv.getId());
-                }
-            }
+        final ManagedRepositories managedRepositoriesObj = this.getManagedRepositories();
+        for (final ManagedRepository repository : managedRepositoriesObj.getManagedRepositories()) {
+            addRepositoryForGroupId(groupId,
+                    repository,
+                    managedTarget,
+                    authorizationManager,
+                    deployerPrivs,
+                    readOnlyPrivs,
+                    existingPrivs);
         }
         
         //Add the roles
-        authorizationManager.addRole(deployerRole);
-        authorizationManager.addRole(readOnlyRole);
+        authorizationManager.updateRole(deployerRole);
+        authorizationManager.updateRole(readOnlyRole);
+        
+        this.nexusConfiguration.saveConfiguration();
     }
     
     @Override
     public void removeManagedGroupId(String groupId) throws NoSuchAuthorizationManagerException, NoSuchPrivilegeException, NoSuchRoleException, IOException {
-        removeManagedGroupId(groupId, new ManagedRepository[0]);
-    }
-    protected void removeManagedGroupId(String groupId, ManagedRepository... managedRepositories) throws NoSuchAuthorizationManagerException, NoSuchPrivilegeException, NoSuchRoleException, IOException {
-        
         final Logger logger = getLogger();
         
         final AuthorizationManager authorizationManager = this.securitySystem.getAuthorizationManager( SECURITY_CONTEXT );
@@ -261,22 +236,10 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
         /*
          * Deletes privs
          */
-        if (managedRepositories == null || managedRepositories.length == 0) {
-            final ManagedRepositories managedRepositoriesObj = this.getManagedRepositories();
-            managedRepositories = managedRepositoriesObj.getManagedRepositories().toArray(new ManagedRepository[0]);
+        final ManagedRepositories managedRepositoriesObj = this.getManagedRepositories();
+        for (final ManagedRepository repository : managedRepositoriesObj.getManagedRepositories()) {
+            removeRepositoryForGroupId(groupId, repository, authorizationManager, existingPrivs);
         }
-        for (final ManagedRepository repository : managedRepositories) {
-            for (final String method : PRIVILEGE_METHODS) {
-                final String name = createPrivilegeName(repository, groupId, method);
-                final Privilege priv = existingPrivs.remove(name);
-                if (priv != null) {
-                    authorizationManager.deletePrivilege(priv.getId());
-                    logger.info("Deleted privilege: " + priv.getName());
-                }
-            }
-        }
-        
-        //TODO this won't work for remove, only want to run the remove for the roles and target if the groupId is actually being removed and not just a repository
         
         //Delete roles
         final String deployerRoleId = this.createRoleId(groupId, DEPLOYER_ROLE_SUFFIX);
@@ -294,6 +257,117 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
         logger.info("Deleted repository target: " + targetId);
         
         this.nexusConfiguration.saveConfiguration();
+    }
+    
+    /**
+     * Remove repository from management
+     */
+    protected void removeRepositoryForGroupId(String groupId, ManagedRepository repository) throws NoSuchPrivilegeException, NoSuchAuthorizationManagerException {
+        final AuthorizationManager authorizationManager = this.securitySystem.getAuthorizationManager( SECURITY_CONTEXT );
+
+        //Assumes priv name is unique
+        final Map<String, Privilege> existingPrivs = new HashMap<String, Privilege>();
+        for (final Privilege priv : authorizationManager.listPrivileges()) {
+            existingPrivs.put(priv.getName(), priv);
+        }
+        
+        this.removeRepositoryForGroupId(groupId, repository, authorizationManager, existingPrivs);
+    }
+
+    protected void removeRepositoryForGroupId(String groupId, ManagedRepository repository,
+            AuthorizationManager authorizationManager, Map<String, Privilege> existingPrivs)
+            throws NoSuchPrivilegeException {
+        
+        final Logger logger = getLogger();
+        
+        for (final String method : PRIVILEGE_METHODS) {
+            final String name = createPrivilegeName(repository, groupId, method);
+            final Privilege priv = existingPrivs.remove(name);
+            if (priv != null) {
+                authorizationManager.deletePrivilege(priv.getId());
+                logger.info("Deleted privilege: " + priv.getName());
+            }
+        }
+    }
+    
+    /**
+     * Setup Privs and Roles for the newly managed repository
+     */
+    protected void addRepositoryForGroupId(String groupId, ManagedRepository repository) throws InvalidConfigurationException, NoSuchAuthorizationManagerException, NoSuchRoleException {
+        final String targetId = GIDM_ID_PREFIX + groupId;
+        final Target managedTarget = this.targetRegistry.getRepositoryTarget(targetId);
+        if (managedTarget == null) {
+            throw new IllegalStateException("Failed to find repository target '" + targetId + "' for managed groupId: " + groupId);
+        }
+        
+        final AuthorizationManager authorizationManager = this.securitySystem.getAuthorizationManager( SECURITY_CONTEXT );
+        
+        //Get or Create the deployer and readonly Roles, need these here to add the privs to them as they are created in the next step
+        final Role deployerRole = getOrCreateRole(authorizationManager, groupId, DEPLOYER_ROLE_SUFFIX);
+        final Set<String> deployerPrivs = deployerRole.getPrivileges();
+
+        final Role readOnlyRole = getOrCreateRole(authorizationManager, groupId, READONLY_ROLE_SUFFIX);
+        final Set<String> readOnlyPrivs = readOnlyRole.getPrivileges();
+
+        //Assumes priv name is unique
+        final Map<String, Privilege> existingPrivs = new HashMap<String, Privilege>();
+        for (final Privilege priv : authorizationManager.listPrivileges()) {
+            existingPrivs.put(priv.getName(), priv);
+        }
+        
+        addRepositoryForGroupId(groupId,
+                repository,
+                managedTarget,
+                authorizationManager,
+                deployerPrivs,
+                readOnlyPrivs,
+                existingPrivs);
+
+        authorizationManager.updateRole(deployerRole);
+        authorizationManager.updateRole(readOnlyRole);
+    }
+
+    /**
+     * Logic shared when adding new managed GroupIds and Repositories.
+     */
+    protected void addRepositoryForGroupId(String groupId, ManagedRepository repository, Target managedTarget,
+            AuthorizationManager authorizationManager, Set<String> deployerPrivs, Set<String> readOnlyPrivs,
+            Map<String, Privilege> existingPrivs) throws InvalidConfigurationException {
+
+        final Logger logger = this.getLogger();
+        
+        for (final String method : PRIVILEGE_METHODS) {
+            final String name = createPrivilegeName(repository, groupId, method);
+            
+            //Check for existing priv before creating a new one
+            Privilege priv = existingPrivs.get(name);
+            if (priv == null) {
+                priv = new Privilege();
+                logger.info("Creating new privilege: " + name);
+            }
+            else {
+                logger.info("Updating existing privilege: " + name);
+            }
+            
+            priv.setName(name);
+            priv.setDescription(priv.getName());
+            priv.setType(TargetPrivilegeDescriptor.TYPE);
+      
+            priv.addProperty(ApplicationPrivilegeMethodPropertyDescriptor.ID, method);
+            priv.addProperty(TargetPrivilegeRepositoryTargetPropertyDescriptor.ID, managedTarget.getId());
+            priv.addProperty(TargetPrivilegeRepositoryPropertyDescriptor.ID, repository.getId());
+      
+            //Store, capturing updated reference
+            priv = authorizationManager.addPrivilege(priv);
+            
+            //Build up the priv lists
+            if (DEPLOYER_METHODS.contains(method)) {
+                deployerPrivs.add(priv.getId());
+            }
+            if (READONLY_METHODS.contains(method)) {
+                readOnlyPrivs.add(priv.getId());
+            }
+        }
     }
 
     protected ManagedRepository createManagedRepository(final Repository repository) {
@@ -313,7 +387,7 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
         return GIDM_NAME_PREFIX + repository.getName() + " - " + groupId + " - (" + method + ")";
     }
 
-    protected Role getOrCreateRole(AuthorizationManager authorizationManager, String groupId, String roleSuffix) {
+    protected Role getOrCreateRole(AuthorizationManager authorizationManager, String groupId, String roleSuffix) throws InvalidConfigurationException {
         final String roleId = createRoleId(groupId, roleSuffix);
         
         Role role = null;
@@ -328,6 +402,7 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
         if (role == null) {
             role = new Role(roleId, GIDM_NAME_PREFIX + groupId + " - " + roleSuffix, "", SECURITY_CONTEXT, false, new HashSet<String>(), new HashSet<String>());
             getLogger().info("Creating new roll: " + role.getName());
+            authorizationManager.addRole(role);
         }
         
         return role;
@@ -335,17 +410,6 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
 
     protected String createRoleId(String groupId, String roleSuffix) {
         return GIDM_ID_PREFIX + groupId + "_" + roleSuffix;
-    }
-
-    protected Target findRepositoryTarget(final String targetName) {
-        Target managedTarget = null;
-        for (final Target target : this.targetRegistry.getTargetsForContentClass(M2_CONTENT_CLASS)) {
-            if (targetName.equals(target.getName())) {
-                managedTarget = target;
-                break;
-            }
-        }
-        return managedTarget;
     }
 
     protected String groupIdToTargetPattern(String groupId) {
