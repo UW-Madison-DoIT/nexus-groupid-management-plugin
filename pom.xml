@@ -64,6 +64,14 @@
                     <artifactId>commons-logging-api</artifactId>
                     <groupId>commons-logging</groupId>
                 </exclusion>
+                <exclusion>
+                    <artifactId>javax.ws.rs</artifactId>
+                    <groupId>javax.ws.rs</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>org.json</artifactId>
+                    <groupId>org.json</groupId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>

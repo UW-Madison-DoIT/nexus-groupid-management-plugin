@@ -75,7 +75,7 @@ public class DefaultGroupIdManager extends AbstractLogEnabled implements GroupId
     private static final Pattern GROUPID_DELIM = Pattern.compile("\\.");
     private static final Pattern VALID_GROUPID_PART = Pattern.compile("^([a-zA-Z_]{1}[a-zA-Z0-9_]*(\\.[a-zA-Z_]{1}[a-zA-Z0-9_]*)*)?$");
     
-    private static final Set<String> DEPLOYER_METHODS = ImmutableSet.of("create", "read");
+    private static final Set<String> DEPLOYER_METHODS = ImmutableSet.of("create", "read", "update");
     private static final Set<String> READONLY_METHODS = ImmutableSet.of("read");
     private static final Set<String> PRIVILEGE_METHODS = ImmutableSet.<String>builder().addAll(DEPLOYER_METHODS).addAll(READONLY_METHODS).build();
     
