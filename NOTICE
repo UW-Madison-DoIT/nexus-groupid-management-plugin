@@ -27,7 +27,6 @@ This project includes:
   APT-Jelly - Freemarker Module under The Apache Software License, Version 2.0
   Asynchronous Http Client under Apache License 2.0
   Base Configuration under Apache License, Version 2.0
-  com.sun:tools under COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL) Version 1.0
   Commons Codec under The Apache Software License, Version 2.0
   Commons FileUpload under The Apache Software License, Version 2.0
   Commons IO under The Apache Software License, Version 2.0
@@ -59,11 +58,9 @@ This project includes:
   Java Diff under BSD
   JavaMail API under Common Development and Distribution License (CDDL) v1.0
   Javassist under MPL 1.1 or LGPL 2.1
-  JAX-RS API under COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL) Version 1.0
   JAX-RS implementation under CDDL license or LGPL license
   JCL 1.1.1 implemented over SLF4J under MIT License
   JDOM under Apache License
-  JSON framework under The JSON License
   JSR-250 Common Annotations for the JavaTM Platform under COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL) Version 1.0
   jsr311-api under CDDL License
   JUL to SLF4J bridge under MIT License
