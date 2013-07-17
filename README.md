@@ -2,6 +2,7 @@
 This plugin adds a simply workflow UI around permissioning read/write access to specific GroupIDs within Nexus. There are no custom Realms here but just some code and UI to make doing all of the underlying Nexus Target, Priviledge and Role creation more sane.
 
 ## Plugin Installation
+Copy `nexus-groupid-management-plugin-X.Y.Z.jar` to `$NEXUS_BASE/sonatype-work/nexus/plugin-repository/nexus-groupid-management-plugin-X.Y.Z/nexus-groupid-management-plugin-X.Y.Z.jar`
 
 ## Plugin Configuration
 The plugin stores its configuration in `$NEXUS_BASE/sonatype-work/nexus/conf/gidm-plugin.xml`. The file will be created automatically if it does not exist.
